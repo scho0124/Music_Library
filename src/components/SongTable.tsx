@@ -1,30 +1,27 @@
 import { useState } from "react";
 import { Play, Pause } from "lucide-react";
-import { usePlaybackStore } from "@/stores/playbackStore";
 
-type Song = {
-  id: number;
-  title: string;
-  artist: string;
-  album: string;
-  duration: string;
-  src: string;
+import { usePlaybackStore } from "@/stores/playbackStore";
+import { useLibraryStore } from "@/stores/libraryStore";
+
+/**
+ * Format seconds → mm:ss
+ */
+const formatTime = (value: number) => {
+  const minutes = Math.floor(value / 60);
+  const seconds = Math.floor(value % 60)
+    .toString()
+    .padStart(2, "0");
+
+  return `${minutes}:${seconds}`;
 };
 
-const mockSongs: Song[] = [
-  {
-    id: 1,
-    title: "Test Song",
-    artist: "Demo Artist",
-    album: "Demo Album",
-    duration: "3:45",
-    src: "/audio/test.mp3",
-  },
-];
 export const SongTable = () => {
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
-  const { currentTrack, isPlaying, setTrack, togglePlay } = usePlaybackStore();
+  const { songs } = useLibraryStore();
+  const { currentTrack, isPlaying, setQueueAndPlay, togglePlay } =
+    usePlaybackStore();
 
   return (
     <div className="h-full overflow-hidden rounded-md border">
@@ -39,7 +36,7 @@ export const SongTable = () => {
 
       {/* Rows */}
       <div className="h-full overflow-auto">
-        {mockSongs.map((song, index) => {
+        {songs.map((song, index) => {
           const isSelected = selectedId === song.id;
           const isActive = currentTrack?.id === song.id;
 
@@ -47,10 +44,9 @@ export const SongTable = () => {
             <div
               key={song.id}
               onClick={() => setSelectedId(song.id)}
-              onDoubleClick={() => setTrack(song)}
+              onDoubleClick={() => setQueueAndPlay(songs, index)}
               className={`
-                group
-                grid cursor-pointer grid-cols-[40px_2fr_1.5fr_1.5fr_80px] items-center px-3 py-2 text-sm
+                group grid cursor-pointer grid-cols-[40px_2fr_1.5fr_1.5fr_80px] items-center px-3 py-2 text-sm
                 ${isActive ? "bg-blue-500 text-white" : ""}
                 ${!isActive && isSelected ? "bg-muted/70" : ""}
                 ${!isActive ? "hover:bg-muted/60" : ""}
@@ -59,7 +55,6 @@ export const SongTable = () => {
               {/* LEFT COLUMN */}
               <span className="flex items-center justify-center">
                 {isActive ? (
-                  // Active track → play/pause
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -74,16 +69,16 @@ export const SongTable = () => {
                   </button>
                 ) : (
                   <>
-                    {/* Default: number */}
+                    {/* number */}
                     <span className="text-muted-foreground group-hover:hidden">
                       {index + 1}
                     </span>
 
-                    {/* Hover: play button */}
+                    {/* hover play */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setTrack(song);
+                        setQueueAndPlay(songs, index);
                       }}
                       className="hidden group-hover:block"
                     >
@@ -120,7 +115,7 @@ export const SongTable = () => {
                   isActive ? "text-white/80" : "text-muted-foreground"
                 }`}
               >
-                {song.duration}
+                {formatTime(song.duration)}
               </span>
             </div>
           );

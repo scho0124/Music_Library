@@ -5,42 +5,63 @@ export type Song = {
   title: string;
   artist: string;
   album: string;
-  duration: string;
+  duration: number;
   src: string;
 };
 
 type PlaybackState = {
+  queue: Song[];
+  currentIndex: number;
+
   currentTrack: Song | null;
   isPlaying: boolean;
+
   duration: number;
   currentTime: number;
 
   audio: HTMLAudioElement | null;
 
-  setTrack: (song: Song) => void;
+  setQueueAndPlay: (songs: Song[], index: number) => void;
+  playTrackAtIndex: (index: number) => void;
+
   togglePlay: () => void;
+  next: () => void;
+  prev: () => void;
   setTime: (time: number) => void;
 };
 
 export const usePlaybackStore = create<PlaybackState>((set, get) => ({
+  queue: [],
+  currentIndex: -1,
+
   currentTrack: null,
   isPlaying: false,
+
   duration: 0,
   currentTime: 0,
 
   audio: null,
 
-  setTrack: (song) => {
-    const prevAudio = get().audio;
+  setQueueAndPlay: (songs, index) => {
+    set({
+      queue: songs,
+      currentIndex: index,
+    });
 
-    // stop previous audio
+    get().playTrackAtIndex(index);
+  },
+
+  playTrackAtIndex: (index) => {
+    const { queue, audio: prevAudio } = get();
+    const song = queue[index];
+    if (!song) return;
+
     if (prevAudio) {
       prevAudio.pause();
+      prevAudio.src = "";
     }
 
     const audio = new Audio(song.src);
-
-    audio.play();
 
     audio.onloadedmetadata = () => {
       set({ duration: audio.duration });
@@ -51,28 +72,53 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
     };
 
     audio.onended = () => {
-      set({ isPlaying: false });
+      get().next();
     };
 
+    audio.onerror = (e) => {
+      console.error("AUDIO ERROR:", e, song.src);
+    };
+
+    // 🔥 prevent AbortError race
     set({
       currentTrack: song,
+      currentIndex: index,
       audio,
       isPlaying: true,
+      currentTime: 0,
+    });
+
+    audio.play().catch((err) => {
+      console.error("PLAY FAILED:", err);
     });
   },
 
   togglePlay: () => {
     const { audio, isPlaying } = get();
-
     if (!audio) return;
 
-    if (isPlaying) {
-      audio.pause();
-    } else {
-      audio.play();
-    }
+    if (isPlaying) audio.pause();
+    else audio.play();
 
     set({ isPlaying: !isPlaying });
+  },
+
+  next: () => {
+    const { queue, currentIndex } = get();
+    const nextIndex = currentIndex + 1;
+
+    if (nextIndex < queue.length) {
+      get().playTrackAtIndex(nextIndex);
+    }
+  },
+
+  prev: () => {
+    const { currentIndex } = get();
+    const prevIndex = currentIndex - 1;
+
+    if (prevIndex >= 0) {
+      get().playTrackAtIndex(prevIndex);
+    }
   },
 
   setTime: (time) => {
