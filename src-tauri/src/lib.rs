@@ -9,8 +9,11 @@ use rusqlite::{Connection, params};
 
 use tauri::{Manager, AppHandle};
 
+
+mod commands;
+
 // -----------------------------
-// Song struct (FIXED NAMING)
+// Song struct
 // -----------------------------
 #[derive(Serialize)]
 struct Song {
@@ -26,9 +29,9 @@ struct Song {
 }
 
 // -----------------------------
-// DB INIT (WITH MIGRATION)
+// DB INIT
 // -----------------------------
-fn get_db(app: &AppHandle) -> Connection {
+pub fn get_db(app: &AppHandle) -> Connection {
     let mut path = app
         .path()
         .app_data_dir()
@@ -40,7 +43,6 @@ fn get_db(app: &AppHandle) -> Connection {
 
     let conn = Connection::open(path).unwrap();
 
-    // base table
     conn.execute(
         "CREATE TABLE IF NOT EXISTS songs (
             id INTEGER PRIMARY KEY,
@@ -185,12 +187,9 @@ fn set_rating(app: AppHandle, id: i64, rating: i64) {
 // -----------------------------
 // DELETE
 // -----------------------------
-
 #[tauri::command]
 fn delete_songs(app: tauri::AppHandle, ids: Vec<i64>) {
     let mut conn = get_db(&app);
-
-    println!("Deleting IDs: {:?}", ids);
 
     let tx = conn.transaction().unwrap();
 
@@ -206,15 +205,19 @@ fn delete_songs(app: tauri::AppHandle, ids: Vec<i64>) {
 }
 
 // -----------------------------
+// RUN APP
+// -----------------------------
 pub fn run() {
     tauri::Builder::default()
-     .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             scan_directory,
             load_songs,
+            delete_songs,
+            commands::get_albums,
+            commands::get_artists,
             increment_listen_count,
             set_rating,
-             delete_songs
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

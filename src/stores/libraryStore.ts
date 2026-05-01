@@ -1,15 +1,13 @@
 import { create } from "zustand";
-import {
-  incrementListenCount as incrementListenCountAPI,
-  setRating as setRatingAPI,
-} from "@/services/libraryService";
+import { invoke } from "@tauri-apps/api/core";
+import { Song } from "@/types/Song";
 
 export type ColumnKey =
   | "title"
   | "artist"
   | "album"
-  | "duration"
   | "genre"
+  | "duration"
   | "rating"
   | "listenCount";
 
@@ -17,88 +15,162 @@ export const ALL_COLUMNS: ColumnKey[] = [
   "title",
   "artist",
   "album",
-  "duration",
   "genre",
+  "duration",
   "rating",
   "listenCount",
 ];
 
-export type Song = {
-  id: number;
-  title: string;
-  artist: string;
-  album: string;
-  duration: number;
-  src: string;
-  artwork?: string | null;
+type LibraryView = "songs" | "albums" | "artists";
 
-  genre?: string;
-  rating?: number;
-  listenCount: number;
+type Album = {
+  name: string;
+  artist: string;
+  year?: number;
+};
+
+type Artist = {
+  name: string;
 };
 
 type LibraryState = {
+  // -----------------------------
+  // DATA
+  // -----------------------------
   songs: Song[];
+  albums: Album[];
+  artists: Artist[];
+
   visibleColumns: ColumnKey[];
+  view: LibraryView;
 
+  // -----------------------------
+  // FILTERS
+  // -----------------------------
+  activeArtist: string | null;
+  activeAlbum: { name: string; artist: string } | null;
+
+  // -----------------------------
+  // IMAGES
+  // -----------------------------
+  artistImages: Record<string, string>;
+  albumImages: Record<string, string>;
+
+  // -----------------------------
+  // SETTERS
+  // -----------------------------
   setSongs: (songs: Song[]) => void;
+  loadDerived: () => Promise<void>;
 
-  incrementListenCount: (id: number) => void;
+  toggleColumn: (col: ColumnKey) => void;
   setRating: (id: number, rating: number) => void;
+  incrementListenCount: (id: number) => void;
 
-  toggleColumn: (column: ColumnKey) => void;
+  setView: (view: LibraryView) => void;
+
+  setArtistFilter: (artist: string | null) => void;
+  setAlbumFilter: (album: { name: string; artist: string } | null) => void;
+
+  setArtistImage: (artist: string, url: string) => void;
+  setAlbumImage: (key: string, url: string) => void;
 };
 
-// -----------------------------
-// LOAD PERSISTED COLUMNS
-// -----------------------------
-const loadColumns = (): ColumnKey[] => {
-  const stored = localStorage.getItem("columns");
-  if (!stored) return ["title", "artist", "album", "duration"];
-  return JSON.parse(stored);
-};
-
-export const useLibraryStore = create<LibraryState>((set) => ({
+export const useLibraryStore = create<LibraryState>((set, get) => ({
+  // -----------------------------
+  // INITIAL STATE
+  // -----------------------------
   songs: [],
-  visibleColumns: loadColumns(),
+  albums: [],
+  artists: [],
 
+  visibleColumns: ALL_COLUMNS,
+  view: "songs",
+
+  activeArtist: null,
+  activeAlbum: null,
+
+  artistImages: JSON.parse(localStorage.getItem("artistImages") || "{}"),
+  albumImages: JSON.parse(localStorage.getItem("albumImages") || "{}"),
+
+  // -----------------------------
+  // DATA SETTERS
+  // -----------------------------
   setSongs: (songs) => set({ songs }),
 
-  // -----------------------------
-  // LISTEN COUNT (DB + UI)
-  // -----------------------------
-  incrementListenCount: (id) => {
-    incrementListenCountAPI(id);
+  loadDerived: async () => {
+    try {
+      const [albums, artists] = await Promise.all([
+        invoke<Album[]>("get_albums"),
+        invoke<Artist[]>("get_artists"),
+      ]);
 
-    set((state) => ({
-      songs: state.songs.map((s) =>
-        s.id === id ? { ...s, listenCount: s.listenCount + 1 } : s
-      ),
-    }));
+      set({ albums, artists });
+    } catch (err) {
+      console.error("Failed to load derived data:", err);
+    }
   },
 
   // -----------------------------
-  // RATING (DB + UI)
+  // TABLE CONTROLS (UNCHANGED)
   // -----------------------------
-  setRating: (id, rating) => {
-    setRatingAPI(id, rating);
+  toggleColumn: (col) =>
+    set((state) => ({
+      visibleColumns: state.visibleColumns.includes(col)
+        ? state.visibleColumns.filter((c) => c !== col)
+        : [...state.visibleColumns, col],
+    })),
+
+  setRating: async (id, rating) => {
+    await invoke("set_rating", { id, rating });
 
     set((state) => ({
       songs: state.songs.map((s) => (s.id === id ? { ...s, rating } : s)),
     }));
   },
 
+  incrementListenCount: async (id) => {
+    await invoke("increment_listen_count", { id });
+
+    set((state) => ({
+      songs: state.songs.map((s) =>
+        s.id === id ? { ...s, listenCount: (s.listenCount ?? 0) + 1 } : s
+      ),
+    }));
+  },
+
   // -----------------------------
-  // COLUMN TOGGLE + PERSIST
+  // VIEW / FILTERS
   // -----------------------------
-  toggleColumn: (column) =>
+  setView: (view) => set({ view }),
+
+  setArtistFilter: (artist) =>
+    set({
+      activeArtist: artist,
+      activeAlbum: null,
+      view: "songs",
+    }),
+
+  setAlbumFilter: (album) =>
+    set({
+      activeAlbum: album,
+      activeArtist: null,
+      view: "songs",
+    }),
+
+  // -----------------------------
+  // IMAGES (UNCHANGED)
+  // -----------------------------
+  setArtistImage: (artist, url) =>
     set((state) => {
-      const updated = state.visibleColumns.includes(column)
-        ? state.visibleColumns.filter((c) => c !== column)
-        : [...state.visibleColumns, column];
+      const updated = { ...state.artistImages, [artist]: url };
+      localStorage.setItem("artistImages", JSON.stringify(updated));
+      return { artistImages: updated };
+    }),
 
-      localStorage.setItem("columns", JSON.stringify(updated));
-
-      return { visibleColumns: updated };
+  setAlbumImage: (key, url) =>
+    set((state) => {
+      const updated = { ...state.albumImages, [key]: url };
+      localStorage.setItem("albumImages", JSON.stringify(updated));
+      return { albumImages: updated };
     }),
 }));
