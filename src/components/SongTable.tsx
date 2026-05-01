@@ -1,125 +1,193 @@
 import { useState } from "react";
-import { Play, Pause } from "lucide-react";
+import { Play, Pause, Star } from "lucide-react";
 
+import { useLibraryStore, ColumnKey, ALL_COLUMNS } from "@/stores/libraryStore";
 import { usePlaybackStore } from "@/stores/playbackStore";
-import { useLibraryStore } from "@/stores/libraryStore";
 
-/**
- * Format seconds → mm:ss
- */
-const formatTime = (value: number) => {
-  const minutes = Math.floor(value / 60);
-  const seconds = Math.floor(value % 60)
-    .toString()
-    .padStart(2, "0");
-
-  return `${minutes}:${seconds}`;
-};
+const MIN_WIDTH = 120;
+const RESIZABLE: ColumnKey[] = ["title", "artist", "album", "genre"];
 
 export const SongTable = () => {
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const { songs, visibleColumns, toggleColumn, setRating } = useLibraryStore();
 
-  const { songs } = useLibraryStore();
   const { currentTrack, isPlaying, setQueueAndPlay, togglePlay } =
     usePlaybackStore();
 
+  // -----------------------------
+  // SORT
+  // -----------------------------
+  const [sortKey, setSortKey] = useState<ColumnKey>("title");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  const handleSort = (key: ColumnKey) => {
+    if (sortKey === key) {
+      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const sortedSongs = [...songs].sort((a, b) => {
+    const aVal = (a as any)[sortKey];
+    const bVal = (b as any)[sortKey];
+
+    if (typeof aVal === "number" && typeof bVal === "number") {
+      return sortDir === "asc" ? aVal - bVal : bVal - aVal;
+    }
+
+    return sortDir === "asc"
+      ? String(aVal ?? "").localeCompare(String(bVal ?? ""))
+      : String(bVal ?? "").localeCompare(String(aVal ?? ""));
+  });
+
+  // -----------------------------
+  // WIDTHS
+  // -----------------------------
+  const [widths, setWidths] = useState<Record<ColumnKey, number>>({
+    title: 300,
+    artist: 200,
+    album: 200,
+    genre: 150,
+    duration: 100,
+    rating: 120,
+    listenCount: 100,
+  });
+
+  const startResize = (col: ColumnKey, e: React.MouseEvent) => {
+    if (!RESIZABLE.includes(col)) return;
+
+    const startX = e.clientX;
+    const startWidth = widths[col];
+
+    const onMove = (ev: MouseEvent) => {
+      const delta = ev.clientX - startX;
+      const next = Math.max(MIN_WIDTH, startWidth + delta);
+
+      setWidths((prev) => ({
+        ...prev,
+        [col]: next,
+      }));
+    };
+
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
+  const formatTime = (v: number) => {
+    const m = Math.floor(v / 60);
+    const s = Math.floor(v % 60)
+      .toString()
+      .padStart(2, "0");
+    return `${m}:${s}`;
+  };
+
+  const gridTemplate = `
+    40px
+    ${visibleColumns.map((c) => `${widths[c]}px`).join(" ")}
+  `;
+
+  // -----------------------------
   return (
-    <div className="h-full overflow-hidden rounded-md border">
-      {/* Header */}
-      <div className="grid grid-cols-[40px_2fr_1.5fr_1.5fr_80px] border-b bg-muted px-3 py-2 text-xs font-semibold text-muted-foreground">
-        <span>#</span>
-        <span>Title</span>
-        <span>Artist</span>
-        <span>Album</span>
-        <span className="text-right">Time</span>
-      </div>
+    <div className="relative flex h-full w-full flex-col border rounded-md overflow-hidden">
+      <div className="flex-1 overflow-auto">
+        <div style={{ minWidth: "max-content" }}>
+          <div
+            className="grid text-xs font-semibold bg-muted border-b sticky top-0 z-10"
+            style={{ gridTemplateColumns: gridTemplate }}
+          >
+            <div className="px-3 py-2 border-r bg-muted">#</div>
 
-      {/* Rows */}
-      <div className="h-full overflow-auto">
-        {songs.map((song, index) => {
-          const isSelected = selectedId === song.id;
-          const isActive = currentTrack?.id === song.id;
+            {visibleColumns.map((col) => (
+              <div
+                key={col}
+                className="relative px-3 py-2 border-r cursor-pointer bg-muted"
+                onClick={() => handleSort(col)}
+              >
+                {col}
+                {sortKey === col ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
 
-          return (
-            <div
-              key={song.id}
-              onClick={() => setSelectedId(song.id)}
-              onDoubleClick={() => setQueueAndPlay(songs, index)}
-              className={`
-                group grid cursor-pointer grid-cols-[40px_2fr_1.5fr_1.5fr_80px] items-center px-3 py-2 text-sm
-                ${isActive ? "bg-blue-500 text-white" : ""}
-                ${!isActive && isSelected ? "bg-muted/70" : ""}
-                ${!isActive ? "hover:bg-muted/60" : ""}
-              `}
-            >
-              {/* LEFT COLUMN */}
-              <span className="flex items-center justify-center">
-                {isActive ? (
-                  <button
-                    onClick={(e) => {
+                {RESIZABLE.includes(col) && (
+                  <div
+                    onMouseDown={(e) => {
                       e.stopPropagation();
-                      togglePlay();
+                      startResize(col, e);
                     }}
-                  >
-                    {isPlaying ? (
-                      <Pause className="h-4 w-4 text-white" />
-                    ) : (
-                      <Play className="h-4 w-4 text-white" />
-                    )}
-                  </button>
-                ) : (
-                  <>
-                    {/* number */}
-                    <span className="text-muted-foreground group-hover:hidden">
-                      {index + 1}
-                    </span>
+                    className="absolute right-0 top-0 h-full w-2 cursor-col-resize"
+                  />
+                )}
+              </div>
+            ))}
+          </div>
 
-                    {/* hover play */}
+          {/* ROWS */}
+          {sortedSongs.map((song, index) => {
+            const isActive = currentTrack?.id === song.id;
+
+            return (
+              <div
+                key={song.id}
+                onDoubleClick={() => setQueueAndPlay(sortedSongs, index)}
+                className={`grid text-sm cursor-pointer ${
+                  isActive ? "bg-blue-500 text-white" : "hover:bg-muted"
+                }`}
+                style={{ gridTemplateColumns: gridTemplate }}
+              >
+                <div className="flex justify-center px-3 py-2 border-r">
+                  {isActive ? (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setQueueAndPlay(songs, index);
+                        togglePlay();
                       }}
-                      className="hidden group-hover:block"
                     >
-                      <Play className="h-4 w-4" />
+                      {isPlaying ? <Pause /> : <Play />}
                     </button>
-                  </>
-                )}
-              </span>
+                  ) : (
+                    index + 1
+                  )}
+                </div>
 
-              {/* Title */}
-              <span className="truncate">{song.title}</span>
-
-              {/* Artist */}
-              <span
-                className={`truncate ${
-                  isActive ? "text-white/80" : "text-muted-foreground"
-                }`}
-              >
-                {song.artist}
-              </span>
-
-              {/* Album */}
-              <span
-                className={`truncate ${
-                  isActive ? "text-white/80" : "text-muted-foreground"
-                }`}
-              >
-                {song.album}
-              </span>
-
-              {/* Duration */}
-              <span
-                className={`text-right ${
-                  isActive ? "text-white/80" : "text-muted-foreground"
-                }`}
-              >
-                {formatTime(song.duration)}
-              </span>
-            </div>
-          );
-        })}
+                {visibleColumns.map((col) => (
+                  <div
+                    key={col}
+                    className="px-3 py-2 border-r min-w-0 overflow-hidden"
+                  >
+                    {col === "rating" ? (
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={`h-4 w-4 cursor-pointer ${
+                              (song.rating ?? 0) >= star
+                                ? "fill-yellow-400 text-yellow-400"
+                                : "text-muted-foreground"
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setRating(song.id, star);
+                            }}
+                          />
+                        ))}
+                      </div>
+                    ) : col === "duration" ? (
+                      formatTime(song.duration)
+                    ) : (
+                      <span className="truncate">
+                        {(song as any)[col] ?? "-"}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

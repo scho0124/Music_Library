@@ -1,30 +1,39 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   FastForward,
-  ImageIcon,
-  Pause,
-  Play,
-  Repeat,
   Rewind,
+  Play,
+  Pause,
+  Repeat,
   Shuffle,
   Volume2,
   VolumeX,
+  ImageIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { usePlaybackStore } from "@/stores/playbackStore";
 
-const formatTime = (value: number) => {
-  const minutes = Math.floor(value / 60);
-  const seconds = Math.floor(value % 60)
-    .toString()
-    .padStart(2, "0");
-  return `${minutes}:${seconds}`;
+// -----------------------------
+// Scrolling text
+// -----------------------------
+const ScrollingText = ({
+  children,
+  className = "",
+}: {
+  children: string;
+  className?: string;
+}) => {
+  return (
+    <div className={`group overflow-hidden whitespace-nowrap ${className}`}>
+      <span className="inline-block animate-[marquee_10s_linear_infinite] group-hover:animate-none">
+        {children}
+      </span>
+    </div>
+  );
 };
 
 export const PlayerBar = () => {
-  const [shuffleEnabled, setShuffleEnabled] = useState(false);
-  const [repeatEnabled, setRepeatEnabled] = useState(false);
   const [volume, setVolume] = useState(70);
 
   const {
@@ -36,68 +45,104 @@ export const PlayerBar = () => {
     currentTime,
     duration,
     setTime,
+    shuffle,
+    toggleShuffle,
+    repeat,
+    toggleRepeat,
   } = usePlaybackStore();
 
   const isMuted = volume === 0;
 
-  // Spacebar toggle
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === "INPUT") return;
+  const formatTime = (v: number) => {
+    const m = Math.floor(v / 60);
+    const s = Math.floor(v % 60)
+      .toString()
+      .padStart(2, "0");
+    return `${m}:${s}`;
+  };
 
-      if (e.code === "Space") {
-        e.preventDefault();
-        togglePlay();
-      }
-    };
+  const activeBtn =
+    "text-blue-500 bg-blue-500/10 hover:text-blue-500 hover:bg-blue-500/10";
 
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [togglePlay]);
+  const normalBtn =
+    "text-muted-foreground hover:text-foreground hover:bg-muted";
 
   return (
-    <div className="grid h-full grid-cols-[1fr_auto_1fr] items-center px-4">
-      {/* Left */}
-      <div className="flex items-center gap-3">
-        <div className="h-14 w-14 rounded-md border flex items-center justify-center">
-          <ImageIcon />
+    <div className="grid h-full grid-cols-[1fr_auto_1fr] items-center gap-4 px-4 md:px-6">
+      {/* LEFT */}
+      <section className="flex min-w-0 items-center gap-3">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md border bg-muted overflow-hidden">
+          {currentTrack?.artwork ? (
+            <img
+              src={currentTrack.artwork}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <ImageIcon className="h-6 w-6 text-muted-foreground" />
+          )}
         </div>
 
-        <div>
-          <p>{currentTrack?.title ?? "No track selected"}</p>
-          <p className="text-xs text-muted-foreground">
-            {currentTrack?.artist ?? ""}
-          </p>
+        <div className="min-w-0">
+          <ScrollingText className="max-w-[200px] text-sm font-medium">
+            {currentTrack?.title || "No track selected"}
+          </ScrollingText>
+
+          <ScrollingText className="max-w-[200px] text-xs text-muted-foreground">
+            {currentTrack?.artist || ""}
+          </ScrollingText>
         </div>
-      </div>
+      </section>
 
-      {/* Center */}
-      <div className="flex flex-col items-center gap-2">
-        <div className="flex items-center gap-2">
-          <Button size="icon" variant="ghost">
-            <Shuffle />
+      {/* CENTER */}
+      <section className="flex flex-col items-center gap-2">
+        <div className="flex items-center gap-1">
+          {/* Shuffle */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleShuffle}
+            className={shuffle ? activeBtn : normalBtn}
+          >
+            <Shuffle className="h-4 w-4" />
           </Button>
 
-          <Button size="icon" variant="ghost" onClick={prev}>
-            <Rewind />
+          {/* Prev */}
+          <Button variant="ghost" size="icon" onClick={prev}>
+            <Rewind className="h-5 w-5" />
           </Button>
 
-          <Button size="icon" onClick={togglePlay}>
-            {isPlaying ? <Pause /> : <Play />}
+          {/* Play */}
+          <Button
+            size="icon"
+            className="h-10 w-10 rounded-full"
+            onClick={togglePlay}
+          >
+            {isPlaying ? (
+              <Pause className="h-5 w-5 fill-current" />
+            ) : (
+              <Play className="h-5 w-5 fill-current" />
+            )}
           </Button>
 
-          <Button size="icon" variant="ghost" onClick={next}>
-            <FastForward />
+          {/* Next */}
+          <Button variant="ghost" size="icon" onClick={next}>
+            <FastForward className="h-5 w-5" />
           </Button>
 
-          <Button size="icon" variant="ghost">
-            <Repeat />
+          {/* Repeat */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleRepeat}
+            className={repeat ? activeBtn : normalBtn}
+          >
+            <Repeat className="h-4 w-4" />
           </Button>
         </div>
 
-        <div className="flex items-center gap-2 w-72">
-          <span className="text-xs">{formatTime(currentTime)}</span>
+        {/* Progress */}
+        <div className="flex w-64 items-center gap-2 text-xs text-muted-foreground md:w-96">
+          <span className="w-10 text-right">{formatTime(currentTime)}</span>
 
           <input
             type="range"
@@ -108,29 +153,36 @@ export const PlayerBar = () => {
             className="w-full"
           />
 
-          <span className="text-xs">{formatTime(duration)}</span>
+          <span className="w-10">{formatTime(duration)}</span>
         </div>
-      </div>
+      </section>
 
-      {/* Right */}
-      <div className="flex justify-end items-center gap-2">
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={() => setVolume(isMuted ? 70 : 0)}
-        >
-          {isMuted ? <VolumeX /> : <Volume2 />}
-        </Button>
+      {/* RIGHT */}
+      <section className="flex justify-end">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setVolume(isMuted ? 70 : 0)}
+            className={isMuted ? "text-red-500" : ""}
+          >
+            {isMuted ? (
+              <VolumeX className="h-4 w-4" />
+            ) : (
+              <Volume2 className="h-4 w-4" />
+            )}
+          </Button>
 
-        <input
-          type="range"
-          min="0"
-          max="100"
-          value={volume}
-          onChange={(e) => setVolume(Number(e.target.value))}
-          className="w-24"
-        />
-      </div>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={volume}
+            onChange={(e) => setVolume(Number(e.target.value))}
+            className="w-24"
+          />
+        </div>
+      </section>
     </div>
   );
 };

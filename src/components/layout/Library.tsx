@@ -1,23 +1,50 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SongTable } from "../SongTable";
 
-/**
- * Library
- *
- * Controls which view is displayed:
- * - Songs
- * - Albums
- * - Artists
- *
- * Later this should be controlled by Sidebar (global state)
- */
+import { loadSongs } from "@/services/libraryService";
+import { useLibraryStore } from "@/stores/libraryStore";
+import { convertFileSrc } from "@tauri-apps/api/core";
+
 export const Library = () => {
   const [view, setView] = useState<"songs" | "albums" | "artists">("songs");
+  const { setSongs } = useLibraryStore();
+
+  // -----------------------------
+  // LOAD FROM SQLITE ON START
+  // -----------------------------
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const data = await loadSongs();
+
+        const mapped = data.map((s) => ({
+          id: s.id,
+          title: s.title ?? "Unknown",
+          artist: s.artist ?? "Unknown",
+          album: s.album ?? "Unknown",
+          duration: s.duration ?? 0,
+
+          src: convertFileSrc(s.path),
+          artwork: null,
+
+          genre: s.genre ?? "",
+          rating: s.rating ?? 0,
+          listenCount: s.listen_count ?? 0,
+        }));
+
+        setSongs(mapped);
+      } catch (err) {
+        console.error("Failed to load songs:", err);
+      }
+    };
+
+    init();
+  }, [setSongs]);
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Top: View Switcher (temporary for dev) */}
-      <div className="flex items-center gap-2 border-b px-4 py-2">
+    <div className="flex h-full w-full flex-col overflow-hidden">
+      {/* TOP BAR */}
+      <div className="flex shrink-0 items-center gap-2 border-b px-4 py-2">
         <button
           onClick={() => setView("songs")}
           className={view === "songs" ? "font-semibold" : ""}
@@ -40,8 +67,8 @@ export const Library = () => {
         </button>
       </div>
 
-      {/* Content Area */}
-      <div className="flex-1 overflow-auto p-4">
+      {/* CONTENT */}
+      <div className="flex-1 w-full overflow-hidden">
         {view === "songs" && <SongTable />}
         {view === "albums" && <AlbumsView />}
         {view === "artists" && <ArtistsView />}
@@ -50,58 +77,24 @@ export const Library = () => {
   );
 };
 
-// Will Extract Later
-
-const SongsView = () => {
-  return (
-    <div>
-      <h2 className="mb-4 text-lg font-semibold">Songs</h2>
-
-      <div className="space-y-2">
-        {Array.from({ length: 10 }).map((_, i) => (
-          <div
-            key={i}
-            className="flex items-center justify-between rounded px-3 py-2 hover:bg-muted"
-          >
-            <span>Song {i + 1}</span>
-            <span className="text-sm text-muted-foreground">3:45</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
+// -----------------------------
+// Albums (placeholder)
+// -----------------------------
 const AlbumsView = () => {
   return (
-    <div>
+    <div className="h-full w-full overflow-auto p-4">
       <h2 className="mb-4 text-lg font-semibold">Albums</h2>
-
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
-        {Array.from({ length: 12 }).map((_, i) => (
-          <div key={i} className="space-y-2">
-            <div className="aspect-square rounded bg-muted" />
-            <p className="text-sm font-medium">Album {i + 1}</p>
-            <p className="text-xs text-muted-foreground">Artist</p>
-          </div>
-        ))}
-      </div>
     </div>
   );
 };
 
+// -----------------------------
+// Artists (placeholder)
+// -----------------------------
 const ArtistsView = () => {
   return (
-    <div>
+    <div className="h-full w-full overflow-auto p-4">
       <h2 className="mb-4 text-lg font-semibold">Artists</h2>
-
-      <div className="space-y-2">
-        {Array.from({ length: 10 }).map((_, i) => (
-          <div key={i} className="rounded px-3 py-2 hover:bg-muted">
-            Artist {i + 1}
-          </div>
-        ))}
-      </div>
     </div>
   );
 };
