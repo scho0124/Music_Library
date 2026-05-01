@@ -17,6 +17,8 @@ export const Library = () => {
     activeAlbum,
     setArtistFilter,
     setAlbumFilter,
+    albums,
+    albumImages,
   } = useLibraryStore();
 
   const [editing, setEditing] = useState(false);
@@ -24,19 +26,33 @@ export const Library = () => {
 
   const activePlaylist = playlists.find((p) => p.id === activePlaylistId);
 
-  const albumYear = useMemo(() => {
+  // -----------------------------
+  // ALBUM META
+  // -----------------------------
+  const albumMeta = useMemo(() => {
     if (!activeAlbum) return null;
 
-    const match = songs.find(
-      (s) =>
-        s.album === activeAlbum.name &&
-        s.artist === activeAlbum.artist &&
-        (s as any).year
+    const albumEntry = albums.find(
+      (a) => a.name === activeAlbum.name && a.artist === activeAlbum.artist
     );
 
-    return match ? (match as any).year : null;
-  }, [songs, activeAlbum]);
+    const song = songs.find(
+      (s) => s.album === activeAlbum.name && s.artist === activeAlbum.artist
+    );
 
+    return {
+      artwork:
+        song?.artwork ||
+        albumEntry?.artwork ||
+        albumImages[`${activeAlbum.name}__${activeAlbum.artist}`],
+      year: albumEntry?.year ?? (song as any)?.year ?? null,
+      genre: song?.genre ?? null,
+    };
+  }, [activeAlbum, albums, songs, albumImages]);
+
+  // -----------------------------
+  // FILTER
+  // -----------------------------
   const filteredSongs = useMemo(() => {
     if (view !== "songs") return songs;
 
@@ -65,11 +81,10 @@ export const Library = () => {
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
-      {/* TOP BAR */}
-      <div className="flex shrink-0 items-center justify-between border-b px-4 py-2">
-        {/* PLAYLIST */}
+      {/* HEADER */}
+      <div className="border-b">
         {activePlaylist ? (
-          <div className="flex items-center gap-2">
+          <div className="px-4 py-2 flex items-center gap-2">
             {editing ? (
               <input
                 value={name}
@@ -77,15 +92,6 @@ export const Library = () => {
                 onBlur={() => {
                   renamePlaylist(activePlaylist.id, name);
                   setEditing(false);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    renamePlaylist(activePlaylist.id, name);
-                    setEditing(false);
-                  }
-                  if (e.key === "Escape") {
-                    setEditing(false);
-                  }
                 }}
                 autoFocus
                 className="text-lg font-semibold bg-transparent outline-none"
@@ -108,14 +114,39 @@ export const Library = () => {
             )}
           </div>
         ) : activeAlbum && view === "songs" ? (
-          <div className="text-lg font-semibold">
-            {activeAlbum.name}
-            {albumYear ? ` (${albumYear})` : ""}
+          <div className="flex items-center gap-4 px-4 py-4">
+            <div className="h-20 w-20 rounded overflow-hidden bg-muted shrink-0">
+              {albumMeta?.artwork && (
+                <img
+                  src={albumMeta.artwork}
+                  className="w-full h-full object-cover"
+                />
+              )}
+            </div>
+
+            <div>
+              <div className="text-lg font-semibold">
+                {activeAlbum.name}
+                {albumMeta?.year ? ` (${albumMeta.year})` : ""}
+              </div>
+
+              <div className="text-sm text-muted-foreground">
+                {activeAlbum.artist}
+              </div>
+
+              {albumMeta?.genre && (
+                <div className="text-xs text-muted-foreground">
+                  {albumMeta.genre}
+                </div>
+              )}
+            </div>
           </div>
         ) : activeArtist && view === "songs" ? (
-          <div className="text-lg font-semibold">{activeArtist}</div>
+          <div className="px-4 py-4">
+            <div className="text-lg font-semibold">{activeArtist}</div>
+          </div>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 px-4 py-2">
             <button
               onClick={goToSongs}
               className={view === "songs" ? "font-semibold" : ""}
@@ -143,7 +174,6 @@ export const Library = () => {
       {/* CONTENT */}
       <div className="flex-1 w-full overflow-hidden">
         {view === "songs" && <SongTable overrideSongs={filteredSongs} />}
-
         {view === "albums" && <AlbumsView />}
         {view === "artists" && <ArtistsView />}
       </div>

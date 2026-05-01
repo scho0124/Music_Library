@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { Song } from "@/types/Song";
 
 export type ColumnKey =
@@ -27,6 +27,7 @@ type Album = {
   name: string;
   artist: string;
   year?: number;
+  artwork?: string;
 };
 
 type Artist = {
@@ -34,9 +35,6 @@ type Artist = {
 };
 
 type LibraryState = {
-  // -----------------------------
-  // DATA
-  // -----------------------------
   songs: Song[];
   albums: Album[];
   artists: Artist[];
@@ -44,23 +42,15 @@ type LibraryState = {
   visibleColumns: ColumnKey[];
   view: LibraryView;
 
-  // -----------------------------
-  // FILTERS
-  // -----------------------------
   activeArtist: string | null;
   activeAlbum: { name: string; artist: string } | null;
 
-  // -----------------------------
-  // IMAGES
-  // -----------------------------
   artistImages: Record<string, string>;
   albumImages: Record<string, string>;
 
-  // -----------------------------
-  // SETTERS
-  // -----------------------------
   setSongs: (songs: Song[]) => void;
   loadDerived: () => Promise<void>;
+  refreshDerived: () => Promise<void>;
 
   toggleColumn: (col: ColumnKey) => void;
   setRating: (id: number, rating: number) => void;
@@ -75,10 +65,13 @@ type LibraryState = {
   setAlbumImage: (key: string, url: string) => void;
 };
 
+// ✅ CORRECT helper (Tauri v2)
+const toFileUrl = (path?: string | null) => {
+  if (!path) return undefined;
+  return convertFileSrc(path);
+};
+
 export const useLibraryStore = create<LibraryState>((set, get) => ({
-  // -----------------------------
-  // INITIAL STATE
-  // -----------------------------
   songs: [],
   albums: [],
   artists: [],
@@ -92,9 +85,6 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   artistImages: JSON.parse(localStorage.getItem("artistImages") || "{}"),
   albumImages: JSON.parse(localStorage.getItem("albumImages") || "{}"),
 
-  // -----------------------------
-  // DATA SETTERS
-  // -----------------------------
   setSongs: (songs) => set({ songs }),
 
   loadDerived: async () => {
@@ -104,15 +94,24 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         invoke<Artist[]>("get_artists"),
       ]);
 
-      set({ albums, artists });
+      const normalizedAlbums = albums.map((a) => ({
+        ...a,
+        artwork: toFileUrl(a.artwork),
+      }));
+
+      set({
+        albums: normalizedAlbums,
+        artists,
+      });
     } catch (err) {
       console.error("Failed to load derived data:", err);
     }
   },
 
-  // -----------------------------
-  // TABLE CONTROLS (UNCHANGED)
-  // -----------------------------
+  refreshDerived: async () => {
+    await get().loadDerived();
+  },
+
   toggleColumn: (col) =>
     set((state) => ({
       visibleColumns: state.visibleColumns.includes(col)
@@ -138,9 +137,6 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     }));
   },
 
-  // -----------------------------
-  // VIEW / FILTERS
-  // -----------------------------
   setView: (view) => set({ view }),
 
   setArtistFilter: (artist) =>
@@ -157,9 +153,6 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       view: "songs",
     }),
 
-  // -----------------------------
-  // IMAGES (UNCHANGED)
-  // -----------------------------
   setArtistImage: (artist, url) =>
     set((state) => {
       const updated = { ...state.artistImages, [artist]: url };

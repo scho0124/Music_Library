@@ -112,14 +112,17 @@ export const SongTable = ({ overrideSongs }: Props) => {
 
     await invoke("delete_songs", { ids });
 
-    // remove from UI immediately
-    setSongs(librarySongs.filter((s) => !ids.includes(s.id)));
+    useLibraryStore.setState((state) => ({
+      songs: state.songs.filter((s) => !ids.includes(s.id)),
+    }));
+
+    const { refreshDerived } = useLibraryStore.getState();
+    await refreshDerived();
 
     setSelectedIds(new Set());
     setRowMenu(null);
   };
 
-  // delete key
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Delete") {
@@ -129,7 +132,7 @@ export const SongTable = ({ overrideSongs }: Props) => {
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedIds, librarySongs]);
+  }, [selectedIds]);
 
   // -----------------------------
   // WIDTHS
@@ -280,7 +283,11 @@ export const SongTable = ({ overrideSongs }: Props) => {
               <div
                 key={song.id}
                 onClick={(e) => handleSelect(e, index, song.id)}
-                onDoubleClick={() => setQueueAndPlay(sortedSongs, index)}
+                onDoubleClick={() => {
+                  const list = sortedSongs;
+
+                  usePlaybackStore.getState().setQueueAndPlay(list, index);
+                }}
                 onContextMenu={(e) => handleRowContext(e, song)}
                 className={`absolute top-0 left-0 w-full grid text-sm cursor-pointer ${
                   selectedIds.has(song.id)

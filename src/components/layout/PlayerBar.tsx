@@ -13,6 +13,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { usePlaybackStore } from "@/stores/playbackStore";
+import { useLibraryStore } from "@/stores/libraryStore";
 
 // -----------------------------
 // Smart Scrolling Text
@@ -81,6 +82,30 @@ export const PlayerBar = () => {
     setVolume: setPlaybackVolume,
   } = usePlaybackStore();
 
+  const { albumImages, albums } = useLibraryStore();
+
+  // -----------------------------
+  // ARTWORK
+  // -----------------------------
+  const albumKey = currentTrack
+    ? `${currentTrack.album}__${currentTrack.artist}`
+    : null;
+
+  const albumEntry = albumKey
+    ? albums.find(
+        (a) =>
+          a.name === currentTrack?.album && a.artist === currentTrack?.artist
+      )
+    : null;
+
+  const resolvedArtwork =
+    currentTrack?.artwork ||
+    albumEntry?.artwork ||
+    (albumKey ? albumImages[albumKey] : undefined);
+
+  // -----------------------------
+  // VOLUME
+  // -----------------------------
   const isMuted = volume === 0;
 
   useEffect(() => {
@@ -106,11 +131,8 @@ export const PlayerBar = () => {
       {/* LEFT */}
       <section className="flex min-w-0 items-center gap-3">
         <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md border bg-muted overflow-hidden">
-          {currentTrack?.artwork ? (
-            <img
-              src={currentTrack.artwork}
-              className="h-full w-full object-cover"
-            />
+          {resolvedArtwork ? (
+            <img src={resolvedArtwork} className="h-full w-full object-cover" />
           ) : (
             <ImageIcon className="h-6 w-6 text-muted-foreground" />
           )}

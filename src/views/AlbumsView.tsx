@@ -50,29 +50,37 @@ export const AlbumsView = () => {
       {/* GRID */}
       <div className="flex-1 overflow-y-auto p-4">
         <div className="grid grid-cols-5 gap-4">
-          {sortedAlbums.map((album) => (
-            <div
-              key={`${album.name}-${album.artist}`}
-              className="cursor-pointer"
-              onClick={() => {
-                setAlbumFilter({
-                  name: album.name,
-                  artist: album.artist,
-                });
-                setView("songs");
-              }}
-            >
-              <div className="aspect-square bg-muted rounded" />
+          {sortedAlbums.map((album) => {
+            const artwork = album.artwork;
 
-              <div className="mt-2 text-sm font-medium">
-                {album.name} {album.year ? `(${album.year})` : ""}
-              </div>
+            return (
+              <div
+                key={`${album.name}-${album.artist}`}
+                className="cursor-pointer"
+                onClick={() => {
+                  setAlbumFilter({
+                    name: album.name,
+                    artist: album.artist,
+                  });
+                  setView("songs");
+                }}
+              >
+                <div className="aspect-square bg-muted rounded overflow-hidden">
+                  {artwork && (
+                    <img src={artwork} className="w-full h-full object-cover" />
+                  )}
+                </div>
 
-              <div className="text-xs text-muted-foreground">
-                {album.artist}
+                <div className="mt-2 text-sm font-medium">
+                  {album.name} {album.year ? `(${album.year})` : ""}
+                </div>
+
+                <div className="text-xs text-muted-foreground">
+                  {album.artist}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

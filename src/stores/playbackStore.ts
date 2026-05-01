@@ -47,11 +47,29 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
   volume: 0.7,
 
   // -----------------------------
-  // LOAD + PLAY
+  // LOAD + PLAY (FIXED)
   // -----------------------------
   setQueueAndPlay: (songs, index) => {
-    set({ queue: songs });
-    get().playTrackAtIndex(index);
+    const { shuffle } = get();
+
+    let queue = [...songs];
+    let newIndex = index;
+
+    if (shuffle) {
+      const current = queue[index];
+      queue.splice(index, 1);
+
+      for (let i = queue.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [queue[i], queue[j]] = [queue[j], queue[i]];
+      }
+
+      queue.unshift(current);
+      newIndex = 0;
+    }
+
+    set({ queue });
+    get().playTrackAtIndex(newIndex);
   },
 
   playTrackAtIndex: (index) => {
@@ -59,14 +77,13 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
 
     if (!queue[index]) return;
 
-    if (audio) {
-      audio.pause();
-    }
+    if (audio) audio.pause();
 
     const track = queue[index];
     const newAudio = new Audio(track.src);
 
     newAudio.volume = volume;
+
     useLibraryStore.getState().incrementListenCount(track.id);
 
     newAudio.play();
@@ -111,8 +128,13 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
     }
   },
 
+  // -----------------------------
+  // NEXT / PREV
+  // -----------------------------
   next: () => {
     const { queue, currentIndex, repeat } = get();
+
+    if (!queue.length) return;
 
     let nextIndex = currentIndex + 1;
 
@@ -139,16 +161,46 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
     set({ currentTime: time });
   },
 
-  toggleShuffle: () => set((s) => ({ shuffle: !s.shuffle })),
+  toggleShuffle: () => {
+    const { shuffle, queue, currentTrack } = get();
 
-  toggleRepeat: () => set((s) => ({ repeat: !s.repeat })),
+    const nextShuffle = !shuffle;
+
+    if (!queue.length || !currentTrack) {
+      set({ shuffle: nextShuffle });
+      return;
+    }
+
+    if (!nextShuffle) {
+      set({ shuffle: false });
+      return;
+    }
+
+    const remaining = queue.filter((t) => t.id !== currentTrack.id);
+
+    for (let i = remaining.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+    }
+
+    const newQueue = [currentTrack, ...remaining];
+
+    set({
+      queue: newQueue,
+      currentIndex: 0,
+      shuffle: true,
+    });
+  },
+
+  toggleRepeat: () =>
+    set((s) => ({
+      repeat: !s.repeat,
+    })),
 
   setVolume: (v) => {
     const { audio } = get();
 
-    if (audio) {
-      audio.volume = v;
-    }
+    if (audio) audio.volume = v;
 
     set({ volume: v });
   },

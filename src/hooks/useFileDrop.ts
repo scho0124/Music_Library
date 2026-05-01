@@ -18,8 +18,6 @@ export const useFileDrop = () => {
         unlistenDrop = await listen<string[]>(
           "tauri://file-drop",
           async (event) => {
-            console.log("🔥 DROP EVENT FIRED:", event);
-
             const paths = event.payload;
 
             if (!paths || paths.length === 0) {

@@ -11,6 +11,15 @@ import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { useLibraryStore } from "@/stores/libraryStore";
 import { Song } from "./types/Song";
 
+const toFileUrl = (path?: string | null) => {
+  if (!path) return undefined;
+  try {
+    return convertFileSrc(path);
+  } catch {
+    return undefined;
+  }
+};
+
 export default function App() {
   const { setSongs, loadDerived } = useLibraryStore();
 
@@ -20,11 +29,16 @@ export default function App() {
 
       const songs: Song[] = data.map((s) => ({
         ...s,
-        src: convertFileSrc(s.path),
+
+        src: toFileUrl(s.path),
+
+        artwork: s.artwork ? convertFileSrc(s.artwork) : undefined,
+
         listenCount: s.listen_count ?? 0,
       }));
 
       setSongs(songs);
+
       await loadDerived();
     };
 
