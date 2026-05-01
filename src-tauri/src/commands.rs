@@ -1,5 +1,6 @@
 use serde::Serialize;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
+
 
 use crate::get_db;
 
@@ -29,21 +30,22 @@ pub struct Artist {
 // -----------------------------
 // EMBEDDED ART EXTRACTION
 // -----------------------------
-fn extract_embedded_art(path: &str) -> Option<String> {
+fn extract_embedded_art(app: &AppHandle, path: &str) -> Option<String> {
     let tagged_file = read_from_path(path).ok()?;
-    let tag = tagged_file.primary_tag()?;
+    let tag = tagged_file
+        .primary_tag()
+        .or_else(|| tagged_file.first_tag())?;
 
     let picture = tag.pictures().first()?;
 
-    let cache_dir = Path::new("art_cache");
+    let cache_dir = app.path().app_cache_dir().ok()?;
 
     if !cache_dir.exists() {
-        fs::create_dir_all(cache_dir).ok()?;
+        fs::create_dir_all(&cache_dir).ok()?;
     }
 
     let hash = format!("{:x}", md5::compute(path));
     let file_path: PathBuf = cache_dir.join(format!("{}.jpg", hash));
-
 
     if file_path.exists() {
         return Some(file_path.to_string_lossy().to_string());
@@ -128,7 +130,8 @@ pub fn get_albums(app: AppHandle) -> Result<Vec<Album>, String> {
                 });
 
             let artwork =
-                extract_embedded_art(&path).or_else(|| find_album_art(&path));
+    extract_embedded_art(&app, &path)
+        .or_else(|| find_album_art(&path));
 
             Ok(Album {
                 name,
