@@ -9,14 +9,37 @@ import { useLibraryStore } from "@/stores/libraryStore";
 export const Library = () => {
   const { activePlaylistId, playlists, renamePlaylist } = usePlaylistStore();
 
-  const { songs, view, setView, activeArtist, activeAlbum } = useLibraryStore();
+  const {
+    songs,
+    view,
+    setView,
+    activeArtist,
+    activeAlbum,
+    setArtistFilter,
+    setAlbumFilter,
+  } = useLibraryStore();
 
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
 
   const activePlaylist = playlists.find((p) => p.id === activePlaylistId);
 
+  const albumYear = useMemo(() => {
+    if (!activeAlbum) return null;
+
+    const match = songs.find(
+      (s) =>
+        s.album === activeAlbum.name &&
+        s.artist === activeAlbum.artist &&
+        (s as any).year
+    );
+
+    return match ? (match as any).year : null;
+  }, [songs, activeAlbum]);
+
   const filteredSongs = useMemo(() => {
+    if (view !== "songs") return songs;
+
     if (activePlaylist) {
       return songs.filter((s) => activePlaylist.songIds.includes(s.id));
     }
@@ -32,12 +55,19 @@ export const Library = () => {
     }
 
     return songs;
-  }, [songs, activePlaylist, activeAlbum, activeArtist]);
+  }, [songs, activePlaylist, activeAlbum, activeArtist, view]);
+
+  const goToSongs = () => {
+    setView("songs");
+    setArtistFilter(null);
+    setAlbumFilter(null);
+  };
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
       {/* TOP BAR */}
       <div className="flex shrink-0 items-center justify-between border-b px-4 py-2">
+        {/* PLAYLIST */}
         {activePlaylist ? (
           <div className="flex items-center gap-2">
             {editing ? (
@@ -65,7 +95,6 @@ export const Library = () => {
                 <div className="text-lg font-semibold">
                   {activePlaylist.name}
                 </div>
-
                 <button
                   onClick={() => {
                     setEditing(true);
@@ -78,10 +107,17 @@ export const Library = () => {
               </>
             )}
           </div>
+        ) : activeAlbum && view === "songs" ? (
+          <div className="text-lg font-semibold">
+            {activeAlbum.name}
+            {albumYear ? ` (${albumYear})` : ""}
+          </div>
+        ) : activeArtist && view === "songs" ? (
+          <div className="text-lg font-semibold">{activeArtist}</div>
         ) : (
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setView("songs")}
+              onClick={goToSongs}
               className={view === "songs" ? "font-semibold" : ""}
             >
               Songs

@@ -13,7 +13,7 @@ export const SideBar = () => {
     setActivePlaylist,
   } = usePlaylistStore();
 
-  const { setView } = useLibraryStore();
+  const { setView, setArtistFilter, setAlbumFilter } = useLibraryStore();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState<number | null>(null);
@@ -30,6 +30,8 @@ export const SideBar = () => {
         <button
           onClick={() => {
             setActivePlaylist(null);
+            setArtistFilter(null);
+            setAlbumFilter(null);
             setView("songs");
           }}
           className="w-full rounded px-2 py-1 text-left hover:bg-muted"
@@ -40,6 +42,8 @@ export const SideBar = () => {
         <button
           onClick={() => {
             setActivePlaylist(null);
+            setArtistFilter(null);
+            setAlbumFilter(null);
             setView("albums");
           }}
           className="w-full rounded px-2 py-1 text-left hover:bg-muted"
@@ -50,6 +54,8 @@ export const SideBar = () => {
         <button
           onClick={() => {
             setActivePlaylist(null);
+            setArtistFilter(null);
+            setAlbumFilter(null);
             setView("artists");
           }}
           className="w-full rounded px-2 py-1 text-left hover:bg-muted"

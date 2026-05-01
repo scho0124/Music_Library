@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   FastForward,
   Rewind,
@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { usePlaybackStore } from "@/stores/playbackStore";
 
 // -----------------------------
-// Scrolling text
+// Smart Scrolling Text
 // -----------------------------
 const ScrollingText = ({
   children,
@@ -24,9 +24,38 @@ const ScrollingText = ({
   children: string;
   className?: string;
 }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLSpanElement>(null);
+
+  const [shouldScroll, setShouldScroll] = useState(false);
+
+  useEffect(() => {
+    const check = () => {
+      if (!containerRef.current || !textRef.current) return;
+
+      setShouldScroll(
+        textRef.current.scrollWidth > containerRef.current.offsetWidth
+      );
+    };
+
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, [children]);
+
   return (
-    <div className={`group overflow-hidden whitespace-nowrap ${className}`}>
-      <span className="inline-block animate-[marquee_10s_linear_infinite] group-hover:animate-none">
+    <div
+      ref={containerRef}
+      className={`overflow-hidden whitespace-nowrap ${className}`}
+    >
+      <span
+        ref={textRef}
+        className={`inline-block ${
+          shouldScroll
+            ? "animate-[marquee_10s_linear_infinite] hover:animate-none"
+            : ""
+        }`}
+      >
         {children}
       </span>
     </div>
@@ -49,9 +78,14 @@ export const PlayerBar = () => {
     toggleShuffle,
     repeat,
     toggleRepeat,
+    setVolume: setPlaybackVolume,
   } = usePlaybackStore();
 
   const isMuted = volume === 0;
+
+  useEffect(() => {
+    setPlaybackVolume(volume / 100);
+  }, [volume]);
 
   const formatTime = (v: number) => {
     const m = Math.floor(v / 60);
@@ -90,13 +124,16 @@ export const PlayerBar = () => {
           <ScrollingText className="max-w-[200px] text-xs text-muted-foreground">
             {currentTrack?.artist || ""}
           </ScrollingText>
+
+          <ScrollingText className="max-w-[200px] text-xs text-muted-foreground">
+            {currentTrack?.album || ""}
+          </ScrollingText>
         </div>
       </section>
 
       {/* CENTER */}
       <section className="flex flex-col items-center gap-2">
         <div className="flex items-center gap-1">
-          {/* Shuffle */}
           <Button
             variant="ghost"
             size="icon"
@@ -106,12 +143,10 @@ export const PlayerBar = () => {
             <Shuffle className="h-4 w-4" />
           </Button>
 
-          {/* Prev */}
           <Button variant="ghost" size="icon" onClick={prev}>
             <Rewind className="h-5 w-5" />
           </Button>
 
-          {/* Play */}
           <Button
             size="icon"
             className="h-10 w-10 rounded-full"
@@ -124,12 +159,10 @@ export const PlayerBar = () => {
             )}
           </Button>
 
-          {/* Next */}
           <Button variant="ghost" size="icon" onClick={next}>
             <FastForward className="h-5 w-5" />
           </Button>
 
-          {/* Repeat */}
           <Button
             variant="ghost"
             size="icon"
@@ -140,7 +173,6 @@ export const PlayerBar = () => {
           </Button>
         </div>
 
-        {/* Progress */}
         <div className="flex w-64 items-center gap-2 text-xs text-muted-foreground md:w-96">
           <span className="w-10 text-right">{formatTime(currentTime)}</span>
 

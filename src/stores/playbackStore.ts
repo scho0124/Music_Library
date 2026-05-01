@@ -1,116 +1,100 @@
 import { create } from "zustand";
 import { useLibraryStore } from "@/stores/libraryStore";
 
-export type Song = {
-  id: number;
-  title: string;
-  artist: string;
-  album: string;
-  duration: number;
-  src: string;
-  artwork?: string | null;
-};
-
 type PlaybackState = {
-  queue: Song[];
+  queue: any[];
   currentIndex: number;
+  currentTrack: any | null;
 
-  currentTrack: Song | null;
   isPlaying: boolean;
-
-  duration: number;
   currentTime: number;
-
-  audio: HTMLAudioElement | null;
+  duration: number;
 
   shuffle: boolean;
   repeat: boolean;
 
-  setQueueAndPlay: (songs: Song[], index: number) => void;
+  audio: HTMLAudioElement | null;
+  volume: number;
+
+  setQueueAndPlay: (songs: any[], index: number) => void;
   playTrackAtIndex: (index: number) => void;
 
   togglePlay: () => void;
   next: () => void;
   prev: () => void;
+
   setTime: (time: number) => void;
 
   toggleShuffle: () => void;
   toggleRepeat: () => void;
+
+  setVolume: (v: number) => void;
 };
 
 export const usePlaybackStore = create<PlaybackState>((set, get) => ({
   queue: [],
-  currentIndex: -1,
-
+  currentIndex: 0,
   currentTrack: null,
+
   isPlaying: false,
-
-  duration: 0,
   currentTime: 0,
-
-  audio: null,
+  duration: 0,
 
   shuffle: false,
   repeat: false,
 
+  audio: null,
+  volume: 0.7,
+
+  // -----------------------------
+  // LOAD + PLAY
   // -----------------------------
   setQueueAndPlay: (songs, index) => {
-    set({
-      queue: songs,
-      currentIndex: index,
-    });
-
+    set({ queue: songs });
     get().playTrackAtIndex(index);
   },
 
-  // -----------------------------
   playTrackAtIndex: (index) => {
-    const { queue, audio: prevAudio } = get();
-    const song = queue[index];
-    if (!song) return;
+    const { queue, audio, volume } = get();
 
-    useLibraryStore.getState().incrementListenCount(song.id);
+    if (!queue[index]) return;
 
-    if (prevAudio) {
-      prevAudio.pause();
-      prevAudio.src = "";
+    if (audio) {
+      audio.pause();
     }
 
-    const audio = new Audio(song.src);
+    const track = queue[index];
+    const newAudio = new Audio(track.src);
 
-    audio.onloadedmetadata = () => {
-      set({ duration: audio.duration });
+    newAudio.volume = volume;
+    useLibraryStore.getState().incrementListenCount(track.id);
+
+    newAudio.play();
+
+    newAudio.ontimeupdate = () => {
+      set({
+        currentTime: newAudio.currentTime,
+        duration: newAudio.duration || 0,
+      });
     };
 
-    audio.ontimeupdate = () => {
-      set({ currentTime: audio.currentTime });
-    };
-
-    audio.onended = () => {
-      const { repeat } = get();
+    newAudio.onended = () => {
+      const { repeat, next } = get();
 
       if (repeat) {
-        audio.currentTime = 0;
-        audio.play();
-        return;
+        newAudio.currentTime = 0;
+        newAudio.play();
+      } else {
+        next();
       }
-
-      get().next();
-    };
-
-    audio.onerror = (e) => {
-      console.error("AUDIO ERROR:", e, song.src);
     };
 
     set({
-      currentTrack: song,
       currentIndex: index,
-      audio,
+      currentTrack: track,
       isPlaying: true,
-      currentTime: 0,
+      audio: newAudio,
     });
-
-    audio.play().catch(console.error);
   },
 
   // -----------------------------
@@ -118,53 +102,35 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
     const { audio, isPlaying } = get();
     if (!audio) return;
 
-    if (isPlaying) audio.pause();
-    else audio.play();
-
-    set({ isPlaying: !isPlaying });
-  },
-
-  // -----------------------------
-  next: () => {
-    const { queue, currentIndex, shuffle } = get();
-
-    if (queue.length === 0) return;
-
-    if (shuffle) {
-      let nextIndex = currentIndex;
-
-      while (nextIndex === currentIndex && queue.length > 1) {
-        nextIndex = Math.floor(Math.random() * queue.length);
-      }
-
-      get().playTrackAtIndex(nextIndex);
-      return;
-    }
-
-    const nextIndex = currentIndex + 1;
-
-    if (nextIndex < queue.length) {
-      get().playTrackAtIndex(nextIndex);
-    } else {
+    if (isPlaying) {
+      audio.pause();
       set({ isPlaying: false });
+    } else {
+      audio.play();
+      set({ isPlaying: true });
     }
   },
 
-  // -----------------------------
+  next: () => {
+    const { queue, currentIndex, repeat } = get();
+
+    let nextIndex = currentIndex + 1;
+
+    if (nextIndex >= queue.length) {
+      if (repeat) nextIndex = 0;
+      else return;
+    }
+
+    get().playTrackAtIndex(nextIndex);
+  },
+
   prev: () => {
-    const { currentIndex, audio } = get();
+    const { currentIndex } = get();
 
-    if (audio && audio.currentTime > 3) {
-      audio.currentTime = 0;
-      return;
-    }
-
-    if (currentIndex > 0) {
-      get().playTrackAtIndex(currentIndex - 1);
-    }
+    const prevIndex = Math.max(0, currentIndex - 1);
+    get().playTrackAtIndex(prevIndex);
   },
 
-  // -----------------------------
   setTime: (time) => {
     const { audio } = get();
     if (!audio) return;
@@ -173,12 +139,17 @@ export const usePlaybackStore = create<PlaybackState>((set, get) => ({
     set({ currentTime: time });
   },
 
-  // -----------------------------
-  toggleShuffle: () => {
-    set((state) => ({ shuffle: !state.shuffle }));
-  },
+  toggleShuffle: () => set((s) => ({ shuffle: !s.shuffle })),
 
-  toggleRepeat: () => {
-    set((state) => ({ repeat: !state.repeat }));
+  toggleRepeat: () => set((s) => ({ repeat: !s.repeat })),
+
+  setVolume: (v) => {
+    const { audio } = get();
+
+    if (audio) {
+      audio.volume = v;
+    }
+
+    set({ volume: v });
   },
 }));
