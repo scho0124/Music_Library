@@ -110,28 +110,47 @@ export const SongTable = ({ overrideSongs }: Props) => {
   const handleDelete = async (ids: number[]) => {
     if (!ids.length) return;
 
-    await invoke("delete_songs", { ids });
+    try {
+      await invoke("delete_songs", { ids });
 
-    useLibraryStore.setState((state) => ({
-      songs: state.songs.filter((s) => !ids.includes(s.id)),
-    }));
+      useLibraryStore.setState((state) => ({
+        songs: state.songs.filter((s) => !ids.includes(s.id)),
+      }));
 
-    const { refreshDerived } = useLibraryStore.getState();
-    await refreshDerived();
+      await useLibraryStore.getState().refreshDerived();
 
-    setSelectedIds(new Set());
-    setRowMenu(null);
+      setSelectedIds(new Set());
+      setRowMenu(null);
+    } catch (err) {
+      console.error("Delete failed:", err);
+    }
   };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Delete") {
+      const target = e.target as HTMLElement;
+
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (!selectedIds.size) return;
+
+        e.preventDefault();
         handleDelete(Array.from(selectedIds));
       }
     };
 
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
   }, [selectedIds]);
 
   // -----------------------------
