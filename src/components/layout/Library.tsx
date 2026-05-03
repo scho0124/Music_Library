@@ -146,24 +146,35 @@ export const Library = () => {
             <div className="text-lg font-semibold">{activeArtist}</div>
           </div>
         ) : (
-          <div className="flex items-center gap-2 px-4 py-2">
+          <div className="flex items-center px-4 py-2 gap-1">
+            {" "}
             <button
               onClick={goToSongs}
-              className={view === "songs" ? "font-semibold" : ""}
+              className={`px-4 py-2 rounded-md transition ${
+                view === "songs"
+                  ? "font-semibold bg-muted"
+                  : "hover:bg-muted/50"
+              }`}
             >
               Songs
             </button>
-
             <button
               onClick={() => setView("albums")}
-              className={view === "albums" ? "font-semibold" : ""}
+              className={`px-4 py-2 rounded-md transition ${
+                view === "albums"
+                  ? "font-semibold bg-muted"
+                  : "hover:bg-muted/50"
+              }`}
             >
               Albums
             </button>
-
             <button
               onClick={() => setView("artists")}
-              className={view === "artists" ? "font-semibold" : ""}
+              className={`px-4 py-2 rounded-md transition ${
+                view === "artists"
+                  ? "font-semibold bg-muted"
+                  : "hover:bg-muted/50"
+              }`}
             >
               Artists
             </button>
