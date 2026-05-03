@@ -39,6 +39,8 @@ type LibraryState = {
   songs: Song[];
   albums: Album[];
   artists: Artist[];
+  searchQuery: string;
+  setSearchQuery: (q: string) => void;
 
   visibleColumns: ColumnKey[];
   view: LibraryView;
@@ -180,4 +182,6 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       localStorage.setItem("albumImages", JSON.stringify(updated));
       return { albumImages: updated };
     }),
+  searchQuery: "",
+  setSearchQuery: (q: string) => set({ searchQuery: q }),
 }));

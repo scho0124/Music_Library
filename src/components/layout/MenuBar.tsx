@@ -11,7 +11,7 @@ import { useLibraryStore } from "@/stores/libraryStore";
 
 export const MenuBar = () => {
   const [loading, setLoading] = useState(false);
-  const { setSongs } = useLibraryStore();
+  const { setSongs, setSearchQuery, searchQuery } = useLibraryStore();
 
   const handleImport = async () => {
     try {
@@ -59,7 +59,12 @@ export const MenuBar = () => {
 
       <div className="relative flex items-center">
         <Search className="absolute left-2 h-4 w-4 text-muted-foreground" />
-        <Input className="h-8 w-56 pl-8" placeholder="Search..." />
+        <Input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="h-8 w-56 pl-8"
+          placeholder="Search..."
+        />
       </div>
     </div>
   );

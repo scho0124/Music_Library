@@ -26,6 +26,8 @@ export const Library = () => {
 
   const activePlaylist = playlists.find((p) => p.id === activePlaylistId);
 
+  const { searchQuery } = useLibraryStore();
+
   // -----------------------------
   // ALBUM META
   // -----------------------------
@@ -54,24 +56,42 @@ export const Library = () => {
   // FILTER
   // -----------------------------
   const filteredSongs = useMemo(() => {
+    let result = songs;
+
     if (view !== "songs") return songs;
 
     if (activePlaylist) {
-      return songs.filter((s) => activePlaylist.songIds.includes(s.id));
+      result = result.filter((s) => activePlaylist.songIds.includes(s.id));
     }
 
     if (activeAlbum) {
-      return songs.filter(
+      result = result.filter(
         (s) => s.album === activeAlbum.name && s.artist === activeAlbum.artist
       );
     }
 
     if (activeArtist) {
-      return songs.filter((s) => s.artist === activeArtist);
+      result = result.filter((s) => s.artist === activeArtist);
     }
 
-    return songs;
-  }, [songs, activePlaylist, activeAlbum, activeArtist, view]);
+    // -----------------------------
+    // SEARCH FILTER
+    // -----------------------------
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+
+      result = result.filter((s) => {
+        return (
+          s.title.toLowerCase().includes(q) ||
+          s.artist.toLowerCase().includes(q) ||
+          s.album.toLowerCase().includes(q) ||
+          (s.genre ?? "").toLowerCase().includes(q)
+        );
+      });
+    }
+
+    return result;
+  }, [songs, activePlaylist, activeAlbum, activeArtist, view, searchQuery]);
 
   const goToSongs = () => {
     setView("songs");
