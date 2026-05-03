@@ -204,7 +204,12 @@ export const Library = () => {
 
       {/* CONTENT */}
       <div className="flex-1 w-full overflow-hidden">
-        {view === "songs" && <SongTable overrideSongs={filteredSongs} />}
+        {view === "songs" && (
+          <SongTable
+            overrideSongs={filteredSongs}
+            isAlbumView={!!activeAlbum}
+          />
+        )}
         {view === "albums" && <AlbumsView />}
         {view === "artists" && <ArtistsView />}
       </div>

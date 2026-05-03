@@ -13,19 +13,18 @@ const RESIZABLE: ColumnKey[] = ["title", "artist", "album", "genre"];
 
 type Props = {
   overrideSongs?: Song[];
+  isAlbumView?: boolean;
 };
 
-export const SongTable = ({ overrideSongs }: Props) => {
+export const SongTable = ({ overrideSongs, isAlbumView }: Props) => {
   const {
     songs: librarySongs,
     visibleColumns,
     toggleColumn,
     setRating,
-    setSongs,
   } = useLibraryStore();
 
-  const { currentTrack, isPlaying, setQueueAndPlay, togglePlay } =
-    usePlaybackStore();
+  const { currentTrack, isPlaying, togglePlay } = usePlaybackStore();
 
   const { playlists, addToPlaylist, isSongInPlaylist } = usePlaylistStore();
 
@@ -81,18 +80,23 @@ export const SongTable = ({ overrideSongs }: Props) => {
 
     const arr = [...songs];
 
+    const effectiveSortKey =
+      isAlbumView && sortKey === "title" ? "track" : sortKey;
+
     const isNumeric =
-      sortKey === "duration" ||
-      sortKey === "rating" ||
-      sortKey === "listenCount";
+      effectiveSortKey === "duration" ||
+      effectiveSortKey === "rating" ||
+      effectiveSortKey === "listenCount" ||
+      effectiveSortKey === "track";
 
     arr.sort((a, b) => {
-      let aVal: any = (a as any)[sortKey];
-      let bVal: any = (b as any)[sortKey];
+      let aVal: any = (a as any)[effectiveSortKey];
+      let bVal: any = (b as any)[effectiveSortKey];
 
       if (isNumeric) {
-        aVal = aVal ?? 0;
-        bVal = bVal ?? 0;
+        aVal = aVal ?? 9999;
+        bVal = bVal ?? 9999;
+
         return sortDir === "asc" ? aVal - bVal : bVal - aVal;
       }
 
@@ -102,7 +106,7 @@ export const SongTable = ({ overrideSongs }: Props) => {
     });
 
     return arr;
-  }, [songs, sortKey, sortDir]);
+  }, [songs, sortKey, sortDir, isAlbumView]);
 
   // -----------------------------
   // DELETE

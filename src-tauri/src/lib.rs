@@ -9,7 +9,6 @@ use rusqlite::{Connection, params};
 
 use tauri::{Manager, AppHandle};
 
-
 mod commands;
 
 // -----------------------------
@@ -26,6 +25,7 @@ struct Song {
     genre: Option<String>,
     rating: Option<i64>,
     listen_count: i64,
+    track: Option<u32>,
 }
 
 // -----------------------------
@@ -68,6 +68,11 @@ pub fn get_db(app: &AppHandle) -> Connection {
         [],
     ).ok();
 
+    conn.execute(
+        "ALTER TABLE songs ADD COLUMN track INTEGER",
+        [],
+    ).ok();
+
     conn
 }
 
@@ -93,6 +98,7 @@ fn scan_directory(app: AppHandle, path: String) -> Vec<Song> {
                 let mut album = "Unknown".to_string();
                 let mut duration = 0;
                 let mut genre = None;
+                let mut track = None;
 
                 if let Ok(tagged_file) = read_from_path(path) {
                     if let Some(tag) = tagged_file.primary_tag() {
@@ -108,6 +114,10 @@ fn scan_directory(app: AppHandle, path: String) -> Vec<Song> {
                         if let Some(g) = tag.genre() {
                             genre = Some(g.to_string());
                         }
+
+                        if let Some(tn) = tag.track() {
+                            track = Some(tn);
+                        }
                     }
 
                     duration = tagged_file.properties().duration().as_secs();
@@ -117,9 +127,9 @@ fn scan_directory(app: AppHandle, path: String) -> Vec<Song> {
 
                 conn.execute(
                     "INSERT OR IGNORE INTO songs
-                    (path, title, artist, album, duration, genre)
-                    VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                    params![path_str, title, artist, album, duration, genre],
+                    (path, title, artist, album, duration, genre, track)
+                    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                    params![path_str, title, artist, album, duration, genre, track],
                 ).ok();
             }
         }
@@ -136,7 +146,7 @@ fn load_songs(app: AppHandle) -> Vec<Song> {
     let conn = get_db(&app);
 
     let mut stmt = conn.prepare(
-        "SELECT id, path, title, artist, album, duration, genre, rating, listen_count FROM songs"
+        "SELECT id, path, title, artist, album, duration, genre, rating, listen_count, track FROM songs"
     ).unwrap();
 
     let rows = stmt
@@ -151,6 +161,7 @@ fn load_songs(app: AppHandle) -> Vec<Song> {
                 genre: row.get(6)?,
                 rating: row.get(7)?,
                 listen_count: row.get(8)?,
+                track: row.get(9)?,
             })
         })
         .unwrap();
