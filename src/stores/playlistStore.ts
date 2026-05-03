@@ -13,6 +13,7 @@ type PlaylistState = {
 
   createPlaylist: () => void;
   renamePlaylist: (id: number, name: string) => void;
+  deletePlaylist: (id: number) => void;
   setActivePlaylist: (id: number | null) => void;
 
   addToPlaylist: (playlistId: number, songIds: number[]) => void;
@@ -68,6 +69,17 @@ export const usePlaylistStore = create<PlaylistState>()(
             return { ...p, songIds: Array.from(merged) };
           }),
         })),
+
+      deletePlaylist: (id) =>
+        set((state) => {
+          const filtered = state.playlists.filter((p) => p.id !== id);
+
+          return {
+            playlists: filtered,
+            activePlaylistId:
+              state.activePlaylistId === id ? null : state.activePlaylistId,
+          };
+        }),
 
       isSongInPlaylist: (playlistId, songId) => {
         const p = get().playlists.find((pl) => pl.id === playlistId);

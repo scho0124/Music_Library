@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 
 import { usePlaylistStore } from "@/stores/playlistStore";
@@ -10,6 +10,7 @@ export const SideBar = () => {
     activePlaylistId,
     createPlaylist,
     renamePlaylist,
+    deletePlaylist,
     setActivePlaylist,
   } = usePlaylistStore();
 
@@ -18,6 +19,37 @@ export const SideBar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState<number | null>(null);
   const [name, setName] = useState("");
+
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    id: number;
+  } | null>(null);
+
+  // -----------------------------
+  // DELETE KEY
+  // -----------------------------
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Delete" && activePlaylistId !== null) {
+        if (confirm("Delete this playlist?")) {
+          deletePlaylist(activePlaylistId);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [activePlaylistId, deletePlaylist]);
+
+  // -----------------------------
+  // CLOSE CONTEXT MENU
+  // -----------------------------
+  useEffect(() => {
+    const close = () => setContextMenu(null);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, []);
 
   return (
     <div className="p-4 text-sm">
@@ -34,7 +66,7 @@ export const SideBar = () => {
             setAlbumFilter(null);
             setView("songs");
           }}
-          className="w-full rounded px-2 py-1 text-left hover:bg-muted"
+          className="w-full rounded px-3 py-2 text-left hover:bg-muted"
         >
           Songs
         </button>
@@ -46,7 +78,7 @@ export const SideBar = () => {
             setAlbumFilter(null);
             setView("albums");
           }}
-          className="w-full rounded px-2 py-1 text-left hover:bg-muted"
+          className="w-full rounded px-3 py-2 text-left hover:bg-muted"
         >
           Albums
         </button>
@@ -58,7 +90,7 @@ export const SideBar = () => {
             setAlbumFilter(null);
             setView("artists");
           }}
-          className="w-full rounded px-2 py-1 text-left hover:bg-muted"
+          className="w-full rounded px-3 py-2 text-left hover:bg-muted"
         >
           Artists
         </button>
@@ -93,10 +125,18 @@ export const SideBar = () => {
         {playlists.map((p) => (
           <div
             key={p.id}
-            className={`cursor-pointer rounded px-2 py-1 ${
+            className={`cursor-pointer rounded px-3 py-2 ${
               activePlaylistId === p.id ? "bg-muted" : "hover:bg-muted"
             }`}
             onClick={() => setActivePlaylist(p.id)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setContextMenu({
+                x: e.clientX,
+                y: e.clientY,
+                id: p.id,
+              });
+            }}
           >
             {editing === p.id ? (
               <input
@@ -137,6 +177,26 @@ export const SideBar = () => {
           </div>
         ))}
       </nav>
+
+      {/* CONTEXT MENU */}
+      {contextMenu && (
+        <div
+          className="fixed z-50 rounded border bg-background shadow p-1"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+        >
+          <div
+            className="cursor-pointer px-3 py-1 hover:bg-muted text-sm text-red-500"
+            onClick={() => {
+              if (confirm("Delete this playlist?")) {
+                deletePlaylist(contextMenu.id);
+              }
+              setContextMenu(null);
+            }}
+          >
+            Delete Playlist
+          </div>
+        </div>
+      )}
     </div>
   );
 };
